@@ -1,0 +1,94 @@
+services:
+  auth-db:
+    image: postgres
+    container_name: auth-db
+    restart: always
+    env_file: ./auth-service/.env
+    ports:
+      - "5000:5432"
+    volumes:
+      - auth-db-data:/var/lib/postgresql/data
+
+  recipe-db:
+    image: postgres
+    container_name: recipe-db
+    restart: always
+    env_file: ./recipe-service/.env
+    ports:
+      - "5001:5432"
+    volumes:
+      - recipe-db-data:/var/lib/postgresql/data
+  
+  subscription-db:
+    image: postgres
+    container_name: subscription-db
+    restart: always
+    env_file: ./subscription-service/.env
+    ports:
+      - "5002:5432"
+    volumes:
+      - subscription-db-data:/var/lib/postgresql/data
+
+  auth-service:
+    build: ./auth-service
+    container_name: auth-service
+    env_file: ./auth-service/.env
+    ports:
+      - "7000:7000"
+    restart: always
+    depends_on:
+      - auth-db
+      - rabbitmq
+    command: sh -c "npm run migration:run && npm run dev"
+
+  recipe-service:
+    build: ./recipe-service
+    container_name: recipe-service
+    env_file: ./recipe-service/.env
+    ports:
+      - "7001:7001"
+    restart: always
+    depends_on:
+      - recipe-db
+      - rabbitmq
+    command: sh -c "npm run migration:run && npm run dev"
+  
+  subscription-service:
+    build: ./subscription-service
+    container_name: subscription-service
+    env_file: ./subscription-service/.env
+    ports:
+      - "7002:7002"
+    restart: always
+    depends_on:
+      - subscription-db
+      - rabbitmq
+    command: sh -c "npm run migration:run && npm run dev"
+
+  nginx:
+    build: ./nginx
+    container_name: nginx
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./nginx/logs:/var/log/nginx
+    depends_on:
+      - auth-service
+      - recipe-service
+      - subscription-service
+  
+  rabbitmq:
+    image: rabbitmq:3-management
+    container_name: rabbitmq
+    restart: always
+    ports:
+      - "5672:5672"   # Для приложений
+      - "15672:15672" # Панель управления
+    environment:
+      - RABBITMQ_DEFAULT_USER=waycooler
+      - RABBITMQ_DEFAULT_PASS=12345678
+
+volumes:
+  auth-db-data:
+  recipe-db-data:
+  subscription-db-data:
